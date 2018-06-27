@@ -162,6 +162,7 @@ int main(void)
   while (1)
   {
 
+
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
@@ -280,17 +281,21 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, Clock_host_Pin|Data_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pins : Clock_host_Pin Data_Pin */
+  GPIO_InitStruct.Pin = Clock_host_Pin|Data_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
   /*Configure GPIO pin : Clock_device_Pin */
   GPIO_InitStruct.Pin = Clock_device_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(Clock_device_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : Data_Pin_Pin */
-  GPIO_InitStruct.Pin = Data_Pin_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(Data_Pin_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : User_Button_Pin */
   GPIO_InitStruct.Pin = User_Button_Pin;
@@ -334,8 +339,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 		HAL_TIM_Base_Stop_IT(&htim10);
 		//end = HAL_GetTick();
 		//diff = end - start;
-		GPIO_InitTypeDef inited = setPullDownNoBreak(Data_Pin_Pin);
-		HAL_GPIO_Init(Data_Pin_GPIO_Port,&inited);
+		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_RESET);
 		HAL_TIM_Base_Start_IT(&htim11);
 
 
@@ -343,8 +347,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 
 	}else if(htim == &htim11) {
 		HAL_TIM_Base_Stop_IT(&htim11);
-		GPIO_InitTypeDef inited = setPullUpBreak(Clock_device_Pin);
-		HAL_GPIO_Init(Clock_device_GPIO_Port,&inited);
+		HAL_GPIO_WritePin(Clock_host_GPIO_Port,Clock_host_Pin,GPIO_PIN_SET);
 		Sending = true;
 	}
 }
@@ -360,7 +363,7 @@ void PS2_Handle_Sending() {
 			setParityBit();
 			break;
 		case 10:
-			HAL_GPIO_WritePin(Data_Pin_GPIO_Port,Data_Pin_Pin,GPIO_PIN_SET);
+			HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_SET);
 			break;
 		case 11:
 			Sending = false;
@@ -378,22 +381,19 @@ void PS2_Handle_Sending() {
 void setNextDataBit(uint32_t bitnumber){
 	uint8_t k = 1;
 	if (dataSendPacket & (k << (8-bitnumber))) {
-		GPIO_InitTypeDef inited = setPullUpNoBreak(Data_Pin_Pin);
-		HAL_GPIO_Init(Data_Pin_GPIO_Port,&inited);
+		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_SET);
 	}else{
-		GPIO_InitTypeDef inited = setPullDownNoBreak(Data_Pin_Pin);
-		HAL_GPIO_Init(Data_Pin_GPIO_Port,&inited);
+		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_RESET);
 	}
 
 }
 void setParityBit(){
 	int count = calculateCount(dataSendPacket);
 	if (count%2){
-		GPIO_InitTypeDef inited = setPullUpNoBreak(Data_Pin_Pin);
-		HAL_GPIO_Init(Data_Pin_GPIO_Port,&inited);
+		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_SET);
 	}else{
-		GPIO_InitTypeDef inited = setPullDownNoBreak(Data_Pin_Pin);
-		HAL_GPIO_Init(Data_Pin_GPIO_Port,&inited);	}
+		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_SET);
+	}
 }
 
 void SendPackage(uint8_t *data){
@@ -401,37 +401,14 @@ void SendPackage(uint8_t *data){
 	if(Reciving == true && bitnumber>9){
 		isSendingWaiting = true;
 	}else{
-		GPIO_InitTypeDef inited = setPullDownNoBreak(Clock_device_Pin);
-		HAL_GPIO_Init(Clock_device_GPIO_Port,&inited);
+		HAL_GPIO_WritePin(Clock_host_GPIO_Port,Clock_host_Pin,GPIO_PIN_RESET);
 		HAL_TIM_Base_Start_IT(&htim10);
 		start = HAL_GetTick();
 	}
 
 }
 
-GPIO_InitTypeDef setPullDownNoBreak(uint32_t gpio_pin){
-	GPIO_InitTypeDef GPIO_Down_Struct;
-	GPIO_Down_Struct.Pin = gpio_pin;
-	GPIO_Down_Struct.Mode = GPIO_MODE_INPUT;
-	GPIO_Down_Struct.Pull = GPIO_PULLDOWN;
-	return GPIO_Down_Struct;
-}
 
-GPIO_InitTypeDef setPullUpBreak(uint32_t gpio_pin){
-	GPIO_InitTypeDef GPIO_Down_Struct;
-	GPIO_Down_Struct.Pin = gpio_pin;
-	GPIO_Down_Struct.Mode = GPIO_MODE_IT_RISING_FALLING;
-	GPIO_Down_Struct.Pull = GPIO_PULLUP;
-	return GPIO_Down_Struct;
-}
-
-GPIO_InitTypeDef setPullUpNoBreak(uint32_t gpio_pin){
-	GPIO_InitTypeDef GPIO_Down_Struct;
-	GPIO_Down_Struct.Pin = gpio_pin;
-	GPIO_Down_Struct.Mode = GPIO_MODE_INPUT;
-	GPIO_Down_Struct.Pull = GPIO_PULLUP;
-	return GPIO_Down_Struct;
-}
 
 void PS2_Handle_Reciving() {
 	if (bitnumber == 0) {
@@ -455,7 +432,7 @@ void PS2_Handle_Reciving() {
 }
 
 void checkParity() {
-	unsigned int x = HAL_GPIO_ReadPin(Data_Pin_GPIO_Port, Data_Pin_Pin);
+	unsigned int x = HAL_GPIO_ReadPin(Data_GPIO_Port, Data_Pin);
 	int count = calculateCount(dataRecivedPacket);
 
 	ParityTable[try-1]=count%2;
@@ -478,7 +455,7 @@ int calculateCount(uint8_t data){
 
 
 void readBit() {
-	unsigned int x = HAL_GPIO_ReadPin(Data_Pin_GPIO_Port, Data_Pin_Pin);
+	unsigned int x = HAL_GPIO_ReadPin(Data_GPIO_Port, Data_Pin);
 	dataRecivedPacket = dataRecivedPacket + ((x%2)<<(bitnumber-1));
 	AllRecived[try-1]=dataRecivedPacket;
 }

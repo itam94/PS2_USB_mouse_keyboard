@@ -59,11 +59,13 @@
 
 /* Private define ------------------------------------------------------------*/
 
+#define Clock_host_Pin GPIO_PIN_0
+#define Clock_host_GPIO_Port GPIOC
 #define Clock_device_Pin GPIO_PIN_1
 #define Clock_device_GPIO_Port GPIOC
 #define Clock_device_EXTI_IRQn EXTI1_IRQn
-#define Data_Pin_Pin GPIO_PIN_2
-#define Data_Pin_GPIO_Port GPIOC
+#define Data_Pin GPIO_PIN_2
+#define Data_GPIO_Port GPIOC
 #define User_Button_Pin GPIO_PIN_0
 #define User_Button_GPIO_Port GPIOA
 #define User_Button_EXTI_IRQn EXTI0_IRQn
