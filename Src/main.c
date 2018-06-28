@@ -62,15 +62,28 @@ TIM_HandleTypeDef htim11;
 /* Private variables ---------------------------------------------------------*/
 typedef int bool;
 enum { false, true };
+
 int bitnumber;
+
 bool Sending = false;
 bool Reciving = false;
+int LastRecived = 0;
+int LastProcessed = 51;
+bool Sended = false;
+bool StreamMode = false;
+bool first = true;
+int bytesCount = 3;
+int intellimouseState = 0;
 uint8_t dataSendPacket;
 uint8_t dataRecivedPacket;
 bool isSendingWaiting = false;
-int try;
-uint8_t AllRecived[100];
-uint8_t ParityTable[100];
+bool preSendingState = false;
+bool Recived = false;
+
+uint8_t AllRecived[51];
+uint8_t AllSended[51];
+
+uint8_t ParityTable[51];
 uint32_t start;
 uint32_t diff;
 uint32_t end;
@@ -90,14 +103,21 @@ void checkParity();
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 void PS2_Handle_Reciving();
 void PS2_Handle_Sending();
-GPIO_InitTypeDef setPullDownNoBreak(uint32_t gpio_pin);
-GPIO_InitTypeDef setPullUpBreak(uint32_t gpio_pin);
-GPIO_InitTypeDef setPullUpNoBreak(uint32_t gpio_pin);
 void setNextDataBit(uint32_t bitnumber);
 void setParityBit();
 int calculateCount(uint8_t data);
 void SendPackage(uint8_t *data);
+void Handle_Recived();
+int8_t setBit(int i);
+uint8_t setButtons();
 
+struct mouseHID_t {
+	      uint8_t buttons;
+	      int8_t x;
+	      int8_t y;
+	      int8_t wheel;
+	  };
+struct mouseHID_t mouseHID;
 
 /* USER CODE END PFP */
 
@@ -113,20 +133,11 @@ void SendPackage(uint8_t *data);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	struct mouseHID_t {
-	      uint8_t buttons;
-	      int8_t x;
-	      int8_t y;
-	      int8_t wheel;
-	  };
-	  struct mouseHID_t mouseHID;
-	  mouseHID.buttons = 0;
-	  mouseHID.x = 10;
-	  mouseHID.y = 0;
-	  mouseHID.wheel = 0;
+
+
 
 	  bitnumber = 0;
-	  try = 0;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -154,6 +165,9 @@ int main(void)
   //HAL_GPIO_WritePin(Clock_device_GPIO_Port,Clock_device_Pin,1);
   //HAL_TIM_Base_Start_IT(&htim10);
 
+  HAL_TIM_Base_Start_IT(&htim11);
+
+
 
   /* USER CODE END 2 */
 
@@ -162,13 +176,11 @@ int main(void)
   while (1)
   {
 
-
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-	 // mouseHID.x = 10;
-	   //   USBD_HID_SendReport(&hUsbDeviceFS, &mouseHID, sizeof(struct mouseHID_t));
-	     // HAL_Delay(1000);
+
+	     //USBD_HID_SendReport(&hUsbDeviceFS, &mouseHID, sizeof(struct mouseHID_t));
 
   }
   /* USER CODE END 3 */
@@ -253,9 +265,9 @@ static void MX_TIM11_Init(void)
 {
 
   htim11.Instance = TIM11;
-  htim11.Init.Prescaler = 35;
+  htim11.Init.Prescaler = 143;
   htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim11.Init.Period = 99;
+  htim11.Init.Period = 9999;
   htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
   {
@@ -314,7 +326,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	if (GPIO_Pin == Clock_device_Pin) {
+	if (GPIO_Pin == Clock_device_Pin && preSendingState == false) {
 		if (HAL_GPIO_ReadPin(Clock_device_GPIO_Port, Clock_device_Pin)
 				== GPIO_PIN_RESET && Sending == false) {
 
@@ -327,8 +339,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 		}
 	}else if(GPIO_Pin == User_Button_Pin){
-		uint8_t toSend = 0xFF;
+		uint8_t toSend = 0xF4;
 		SendPackage(&toSend);
+
 	}
 }
 
@@ -340,16 +353,75 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 		//end = HAL_GetTick();
 		//diff = end - start;
 		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_RESET);
-		HAL_TIM_Base_Start_IT(&htim11);
-
+		HAL_GPIO_WritePin(Clock_host_GPIO_Port,Clock_host_Pin,GPIO_PIN_SET);
+		preSendingState = false;
+		Sending = true;
 
 
 
 	}else if(htim == &htim11) {
-		HAL_TIM_Base_Stop_IT(&htim11);
-		HAL_GPIO_WritePin(Clock_host_GPIO_Port,Clock_host_Pin,GPIO_PIN_SET);
-		Sending = true;
+		if(first == true){
+			uint8_t toSend =0xFF;
+			SendPackage(&toSend);
+			first = false;
+		}else if(StreamMode == false && Sending == false && Reciving == false){
+				  uint8_t toSend;
+				  if(Recived){
+					  Handle_Recived();
+				  }
+				  else if(intellimouseState >5){
+					  toSend = 0xF4;
+					  SendPackage(&toSend);
+
+				  }else{
+					  switch(intellimouseState++){
+					  case 1: toSend = 0xC8;
+						  break;
+					  case 3: toSend = 0x64;
+						  break;
+					  case 5: toSend = 0x50;
+						  break;
+					  default: toSend = 0xF3;
+						  break;
+					  }
+					  SendPackage(&toSend);
+				  }
+			  }
 	}
+}
+
+void Handle_Recived(){
+	int process;
+	 if(LastProcessed >= 50){
+		process = 0;
+		LastProcessed = 0;
+	}else{
+		process = LastProcessed++;
+	}
+	switch(AllRecived[process-1]){
+	case 0xFA:if(dataSendPacket == 0xF4){
+			StreamMode = true;
+			HAL_TIM_Base_Stop_IT(&htim11);
+			}
+		break;
+	case 0xAA:
+		break;
+	case 0x00:
+		break;
+	case 0xFE: SendPackage(&dataSendPacket);
+		break;
+	case 0xFC: SendPackage(&dataSendPacket);
+		break;
+	case 0x03:bytesCount = 4;
+		break;
+	case 0x04:bytesCount = 4;
+		break;
+
+	}
+	if(process == LastRecived){
+		Recived = false;
+	}
+
 }
 
 void PS2_Handle_Sending() {
@@ -380,27 +452,30 @@ void PS2_Handle_Sending() {
 
 void setNextDataBit(uint32_t bitnumber){
 	uint8_t k = 1;
-	if (dataSendPacket & (k << (8-bitnumber))) {
+	if (dataSendPacket & (k << (bitnumber - 1))) {
 		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_SET);
 	}else{
 		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_RESET);
 	}
 
 }
+
 void setParityBit(){
 	int count = calculateCount(dataSendPacket);
-	if (count%2){
+	if (count%2 == 0){
 		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_SET);
 	}else{
-		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(Data_GPIO_Port,Data_Pin,GPIO_PIN_RESET);
 	}
 }
 
 void SendPackage(uint8_t *data){
+	AllSended[LastRecived]= *data;
 	dataSendPacket=*data;
 	if(Reciving == true && bitnumber>9){
 		isSendingWaiting = true;
 	}else{
+		preSendingState = true;
 		HAL_GPIO_WritePin(Clock_host_GPIO_Port,Clock_host_Pin,GPIO_PIN_RESET);
 		HAL_TIM_Base_Start_IT(&htim10);
 		start = HAL_GetTick();
@@ -415,7 +490,7 @@ void PS2_Handle_Reciving() {
 		dataRecivedPacket = 0;
 		Reciving = true;
 		bitnumber++;
-		try++;
+
 	} else if (bitnumber < 9 && Reciving == true) {
 		readBit();
 		bitnumber++;
@@ -425,6 +500,15 @@ void PS2_Handle_Reciving() {
 	} else {
 		Reciving = false;
 		bitnumber = 0;
+
+			if(LastRecived == 50 || (LastRecived >= 3 && StreamMode == true)){
+						LastRecived = 0;
+			}else{
+				++LastRecived;
+			}
+			Recived = true;
+
+
 		if(isSendingWaiting == true){
 			SendPackage(&dataSendPacket);
 		}
@@ -435,10 +519,28 @@ void checkParity() {
 	unsigned int x = HAL_GPIO_ReadPin(Data_GPIO_Port, Data_Pin);
 	int count = calculateCount(dataRecivedPacket);
 
-	ParityTable[try-1]=count%2;
-	if ((count % 2) == x) {
-		//Send data thru usb
+
+	if ((count + x)%2 == 1 && (StreamMode == true && LastRecived == 3)) {
+
+			  mouseHID.buttons = setButtons();
+			  mouseHID.x = setBit(1);
+			  mouseHID.y = -setBit(2);
+			  mouseHID.wheel = setBit(3);
+		USBD_HID_SendReport(&hUsbDeviceFS, &mouseHID, sizeof(struct mouseHID_t));
 	}
+
+}
+
+int8_t setBit(int i){
+	return AllRecived[i];
+}
+
+uint8_t setButtons(){
+	uint8_t toSend;
+	toSend = AllRecived[0];
+	toSend = toSend<<5;
+
+	return  toSend>>5;
 
 }
 
@@ -457,7 +559,14 @@ int calculateCount(uint8_t data){
 void readBit() {
 	unsigned int x = HAL_GPIO_ReadPin(Data_GPIO_Port, Data_Pin);
 	dataRecivedPacket = dataRecivedPacket + ((x%2)<<(bitnumber-1));
-	AllRecived[try-1]=dataRecivedPacket;
+
+	if(LastRecived == 50 || (LastRecived == 3 && StreamMode == true)){
+		AllRecived[0]=dataRecivedPacket;
+	}else{
+		AllRecived[LastRecived+1]=dataRecivedPacket;
+	}
+
+
 }
 /* USER CODE END 4 */
 
