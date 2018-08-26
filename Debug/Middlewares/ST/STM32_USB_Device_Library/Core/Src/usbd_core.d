@@ -22,6 +22,8 @@ Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.o: \
  C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h \
  C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h \
  C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h \
+ C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_adc.h \
+ C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_adc_ex.h \
  C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h \
  C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ex.h \
  C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h \
@@ -80,6 +82,10 @@ C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driv
 C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma_ex.h:
 
 C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_cortex.h:
+
+C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_adc.h:
+
+C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_adc_ex.h:
 
 C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash.h:
 

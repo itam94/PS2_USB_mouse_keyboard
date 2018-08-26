@@ -51,17 +51,19 @@
 #include "usb_device.h"
 
 /* USER CODE BEGIN Includes */
-
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 TIM_HandleTypeDef htim10;
 TIM_HandleTypeDef htim11;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-typedef int bool;
-enum { false, true };
+//typedef int bool;
+//enum { false, true };
 
 int bitnumber;
 
@@ -78,15 +80,18 @@ uint8_t dataSendPacket;
 uint8_t dataRecivedPacket;
 bool isSendingWaiting = false;
 bool preSendingState = false;
-bool Recived = false;
+uint8_t Recived = 0;
 
 uint8_t AllRecived[51];
 uint8_t AllSended[51];
-
+uint8_t isDataReady;
 uint8_t ParityTable[51];
 uint32_t start;
 uint32_t diff;
 uint32_t end;
+uint16_t adc[2];
+int channel = 0;
+uint8_t OutBuffer[10];
 
 /* USER CODE END PV */
 
@@ -95,6 +100,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM10_Init(void);
 static void MX_TIM11_Init(void);
+static void MX_ADC1_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -110,14 +116,38 @@ void SendPackage(uint8_t *data);
 void Handle_Recived();
 int8_t setBit(int i);
 uint8_t setButtons();
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
+void saveKeySettings();
+void readDataFromFlash();
 
 struct mouseHID_t {
+		  uint8_t reportId;
 	      uint8_t buttons;
 	      int8_t x;
 	      int8_t y;
 	      int8_t wheel;
 	  };
+struct keyboardHID_t{
+	 uint8_t report_id;
+	    uint8_t modifier;
+	    uint8_t reserved;
+	    uint8_t keycode[10];
+};
+
+struct keycodesHID_t{
+	 uint8_t report_id;
+	 uint8_t keycode[10];
+};
+
+
+struct keysMapHID_t{
+	uint8_t report_id;
+	uint8_t keys [10];
+};
 struct mouseHID_t mouseHID;
+struct keyboardHID_t keyboardHID;
+struct keysMapHID_t keyMapsHid;
+
 
 /* USER CODE END PFP */
 
@@ -161,20 +191,40 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_TIM10_Init();
   MX_TIM11_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   //HAL_GPIO_WritePin(Clock_device_GPIO_Port,Clock_device_Pin,1);
-  //HAL_TIM_Base_Start_IT(&htim10);
-
+  readDataFromFlash();
   HAL_TIM_Base_Start_IT(&htim11);
+  HAL_ADC_Start_IT(&hadc1);
+  keyboardHID.report_id = 0x01;
+  mouseHID.reportId = 0x02;
+  keyMapsHid.report_id = 0x03;
+  isDataReady = 0;
 
-
-
+  //saveKeySettings();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+	  if(isDataReady == 1){
+		  if(OutBuffer[0] == 0xff){
+				USBD_HID_SendReport(&hUsbDeviceFS, &keyMapsHid, sizeof(struct keysMapHID_t));
+
+		  }else{
+			  for(int i = 0; i<10; i++){
+				  keyMapsHid.keys[i] = OutBuffer[i];
+			  }
+			  //keyMapsHid.keys = OutBuffer;
+
+			  saveKeySettings();
+		  }
+		  isDataReady = 0;
+
+	  }
 
   /* USER CODE END WHILE */
 
@@ -244,6 +294,52 @@ void SystemClock_Config(void)
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
 
+/* ADC1 init function */
+static void MX_ADC1_Init(void)
+{
+
+  ADC_ChannelConfTypeDef sConfig;
+
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
+    */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV8;
+  hadc1.Init.Resolution = ADC_RESOLUTION_8B;
+  hadc1.Init.ScanConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    */
+  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 /* TIM10 init function */
 static void MX_TIM10_Init(void)
 {
@@ -311,7 +407,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : User_Button_Pin */
   GPIO_InitStruct.Pin = User_Button_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(User_Button_GPIO_Port, &GPIO_InitStruct);
 
@@ -325,6 +421,56 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void saveKeySettings(){
+
+	HAL_FLASH_Unlock();
+	static FLASH_EraseInitTypeDef EraseInitStruct;
+	EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
+	EraseInitStruct.Sector = FLASH_SECTOR_2;
+	EraseInitStruct.NbSectors = 1;
+	EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_2;
+	static uint32_t SectorError;
+	HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError);
+	uint32_t startaddres = 0x08008000;
+	uint32_t endaddres = 0x0800800A;
+	int i = 0;
+	while(startaddres<endaddres){
+		if(HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE,startaddres,OutBuffer[i])==HAL_OK){
+			startaddres += 1;
+			i +=1;
+
+		}
+	}
+	HAL_FLASH_Lock();
+
+}
+
+void readDataFromFlash(){
+
+	uint32_t startaddress = 0x08008000;
+		uint32_t endaddress = 0x0800800A;
+		int i = 0;
+		while(startaddress<endaddress){
+			keyMapsHid.keys[i] = *(__IO uint8_t *)startaddress;
+				startaddress += 1;
+				i +=1;
+
+
+		}
+
+}
+
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
+	if(hadc == &hadc1){
+
+		adc[channel] = HAL_ADC_GetValue(&hadc1);
+		channel++;
+		if(channel == 2) channel = 0;
+
+	}
+}
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == Clock_device_Pin && preSendingState == false) {
 		if (HAL_GPIO_ReadPin(Clock_device_GPIO_Port, Clock_device_Pin)
@@ -338,9 +484,15 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 
 		}
-	}else if(GPIO_Pin == User_Button_Pin){
-		uint8_t toSend = 0xF4;
-		SendPackage(&toSend);
+}else if(GPIO_Pin == User_Button_Pin){
+		if(HAL_GPIO_ReadPin(User_Button_GPIO_Port, User_Button_Pin) == GPIO_PIN_SET){
+			keyboardHID.keycode[0] = 0x04;
+			USBD_HID_SendReport(&hUsbDeviceFS, &keyboardHID, sizeof(struct keyboardHID_t));
+		}else{
+			keyboardHID.keycode[0] = 0x00;
+			USBD_HID_SendReport(&hUsbDeviceFS, &keyboardHID, sizeof(struct keyboardHID_t));
+		}
+
 
 	}
 }
@@ -369,7 +521,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 				  if(Recived){
 					  Handle_Recived();
 				  }
-				  else if(intellimouseState >5){
+				  else if(intellimouseState >8){
 					  toSend = 0xF4;
 					  SendPackage(&toSend);
 
@@ -381,6 +533,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 						  break;
 					  case 5: toSend = 0x50;
 						  break;
+					  case 6: toSend = 0xE8;
+					  		break;
+					  case 7: toSend = 0x03;
+					  		break;
+					  case 8: toSend = 0xE7;
+					  		break;
 					  default: toSend = 0xF3;
 						  break;
 					  }

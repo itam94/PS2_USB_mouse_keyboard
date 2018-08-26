@@ -50,11 +50,17 @@
   * @{
   */ 
 #define HID_EPIN_ADDR                 0x81
-#define HID_EPIN_SIZE                 0x04
+#define HID_EPIN_SIZE                 0x1D
 
-#define USB_HID_CONFIG_DESC_SIZ       34
+#define CUSTOM_HID_EPOUT_ADDR		0x02
+#define CUSTOM_HID_EPOUT_SIZE		0x0B
+#define USBD_CUSTOMHID_OUTREPORT_BUF_SIZE    0x0B
+
+
+#define USB_HID_CONFIG_DESC_SIZ       41
 #define USB_HID_DESC_SIZ              9
-#define HID_MOUSE_REPORT_DESC_SIZE    74
+#define HID_MOUSE_REPORT_DESC_SIZE    129//32//
+
 
 #define HID_DESCRIPTOR_TYPE           0x21
 #define HID_REPORT_DESC               0x22
@@ -86,12 +92,23 @@ typedef enum
 }
 HID_StateTypeDef; 
 
+typedef struct _USBD_CUSTOM_HID_Itf
+{
+  uint8_t                  *pReport;
+  int8_t (* Init)          (void);
+  int8_t (* DeInit)        (void);
+  int8_t (* OutEvent)      (uint8_t, uint8_t );
+
+}USBD_CUSTOM_HID_ItfTypeDef;
 
 typedef struct
 {
+  uint8_t              Report_buf[USBD_CUSTOMHID_OUTREPORT_BUF_SIZE];
+
   uint32_t             Protocol;   
   uint32_t             IdleState;  
   uint32_t             AltSetting;
+  uint32_t             IsReportAvailable;
   HID_StateTypeDef     state;  
 }
 USBD_HID_HandleTypeDef; 

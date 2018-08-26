@@ -1,5 +1,5 @@
-Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.o: \
- ../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.c \
+Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.o: \
+ ../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.c \
  C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h \
  C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Inc/stm32f4xx_hal_conf.h \
  C:/Users/mateu/Documents/magisterka/USB_HID_NOTCUSTOM/Inc/main.h \
